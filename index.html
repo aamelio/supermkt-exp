@@ -197,7 +197,7 @@ function drawOverview() {
     text(`Aisle ${r.id}`, r.x+r.w/2, img.y+img.h-25);
   });
 
-  drawBottomText("<b>Go to Aisle 2 and select the Cereal Box.</b>");
+  drawBottomText("Go to Aisle 2 and select the Cereal Box.");
 }
 
 // =====================================
@@ -209,7 +209,7 @@ function drawAisleOther() {
 
   drawBackArrow();
 
-  drawBottomText("<b>This aisle does not contain the cereal. Click Back and try another aisle.</b>");
+  drawBottomText("This aisle does not contain the cereal. Click Back and try another aisle.");
 }
 
 // =====================================
@@ -250,7 +250,7 @@ function drawAisleCereal() {
     }
   });
 
-  drawBottomText("<b>Select the Cereal Box to continue.</b>");
+  drawBottomText("Select the Cereal Box to continue.");
 }
 
 // =====================================
@@ -268,7 +268,7 @@ function drawCashierScene() {
   strokeWeight(3);
   rect(cashierRect.x, cashierRect.y, cashierRect.w, cashierRect.h, 16);
 
-  drawBottomText("<b>Click on the cashier to pay.</b>");
+  drawBottomText("Click on the cashier to pay.");
 }
 
 // =====================================
@@ -318,7 +318,7 @@ function drawPinScene() {
   fill(40);
   text("Enter", enterBtn.x+enterBtn.w/2, enterBtn.y+enterBtn.h/2);
 
-  drawBottomText("<b>Enter PIN 1289 and press Enter.</b>");
+  drawBottomText("Enter PIN 1289 and press Enter.");
 }
 
 // =====================================
@@ -361,10 +361,15 @@ function drawBottomText(msg){
   noStroke();
   fill(250);
   rect(0, height-BOTTOM_UI_H, width, BOTTOM_UI_H);
+
   fill(40);
   textAlign(LEFT,TOP);
   textSize(16);
+
+  push();
+  textStyle(BOLD);
   text(msg, 24, height-BOTTOM_UI_H+20, width-48, BOTTOM_UI_H-30);
+  pop();
 }
 
 function isHover(r){
