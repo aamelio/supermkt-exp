@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Supermarket Experience</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- p5.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: #f2f2f2;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #defaultCanvas0 {
+      outline: none;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+<script>
+  let state = "supermarket"; // "supermarket", "aisle", "cashier", "pin", "success"
+  let floatOffset = 0;
+  let floatDir = 1;
+  let pinInput = "";
+  const correctPin = "1289";
+
+  // Layout helpers
+  let aisleRect, cashierRect, cerealRect, backRect;
+  let keypadButtons = [];
+  let clearButton, enterButton;
+
+  function setup() {
+    const canvas = createCanvas(900, 600);
+    canvas.parent(document.body);
+    textFont("system-ui");
+    setupLayout();
+  }
+
+  function windowResized() {
+    // Keep a fixed size to be stable inside Qualtrics iframe
+    resizeCanvas(900, 600);
+    setupLayout();
+  }
+
+  function setupLayout() {
+    aisleRect = { x: 100, y: 260, w: 220, h: 200 };
+    cashierRect = { x: 580, y: 260, w: 220, h: 200 };
+    cerealRect = { x: 260, y: 260, w: 130, h: 200 };
+    backRect = { x: 40, y: 520, w: 140, h: 40 };
+
+    // Setup keypad
+    keypadButtons = [];
+    const startX = 320;
+    const startY = 230;
+    const bw = 80;
+    const bh = 60;
+    const gap = 15;
+
+    let labels = [
+      "1", "2", "3",
+      "4", "5", "6",
+      "7", "8", "9",
+      "0"
+    ];
+    let idx = 0;
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 3; col++) {
+        if (row === 3 && col > 0) break;
+        const x = startX + col * (bw + gap);
+        const y = startY + row * (bh + gap);
+        keypadButtons.push({
+          label: labels[idx],
+          x, y, w: bw, h: bh
+        });
+        idx++;
+      }
+    }
+
+    clearButton = { label: "Clear", x: 320, y: startY + 4 * (bh + gap), w: bw, h: bh };
+    enterButton = { label: "Enter", x: 320 + (bw + gap), y: startY + 4 * (bh + gap), w: bw * 2 + gap, h: bh };
+  }
+
+  function draw() {
+    background(242);
+
+    // Gentle float animation for highlighting elements
+    floatOffset += 0.3 * floatDir;
+    if (floatOffset > 6 || floatOffset < -6) {
+      floatDir *= -1;
+    }
+
+    drawHeader();
+
+    if (state === "supermarket") {
+      drawInstructions("Go to Aisle 2 and select the Cereal Box.");
+      drawSupermarketScene();
+    } else if (state === "aisle") {
+      drawInstructions("Click on the Cereal Box in Aisle 2.");
+      drawAisleScene();
+    } else if (state === "cashier") {
+      drawInstructions("Click on the cashier to pay.");
+      drawCashierScene();
+    } else if (state === "pin") {
+      drawInstructions("Enter PIN 1289 to complete the payment.");
+      drawPinScene();
+    } else if (state === "success") {
+      drawInstructions("Payment accepted!");
+      drawSuccessScene();
+    }
+  }
+
+  function drawHeader() {
+    noStroke();
+    fill(30);
+    rect(0, 0, width, 70);
+    fill(255);
+    textSize(22);
+    textAlign(LEFT, CENTER);
+    text("Supermarket Checkout Experience", 24, 35);
+  }
+
+  function drawInstructions(msg) {
+    fill(50);
+    textSize(18);
+    textAlign(LEFT, TOP);
+    text(msg, 24, 80, width - 48, 60);
+  }
+
+  function drawSupermarketScene() {
+    textAlign(CENTER, CENTER);
+    textSize(16);
+
+    // Aisle panel
+    push();
+    const aisleHover = isHover(aisleRect);
+    fill(aisleHover ? 210 : 225);
+    rect(aisleRect.x, aisleRect.y, aisleRect.w, aisleRect.h, 20);
+    fill(80);
+    text("Aisle 2", aisleRect.x + aisleRect.w / 2, aisleRect.y + 30 + floatOffset);
+    stroke(160);
+    // fake shelves
+    for (let i = 0; i < 3; i++) {
+      line(aisleRect.x + 20, aisleRect.y + 80 + i * 50, aisleRect.x + aisleRect.w - 20, aisleRect.y + 80 + i * 50);
+    }
+    pop();
+
+    // Cashier panel (disabled at this step)
+    push();
+    fill(235);
+    rect(cashierRect.x, cashierRect.y, cashierRect.w, cashierRect.h, 20);
+    fill(150);
+    text("Cashier", cashierRect.x + cashierRect.w / 2, cashierRect.y + 30);
+    stroke(190);
+    line(cashierRect.x + 20, cashierRect.y + 90, cashierRect.x + cashierRect.w - 20, cashierRect.y + 90);
+    noStroke();
+    fill(200);
+    textSize(14);
+    text("You must first\nselect the Cereal Box", cashierRect.x + cashierRect.w / 2, cashierRect.y + 150);
+    pop();
+
+    // Hint text
+    noStroke();
+    fill(100);
+    textSize(14);
+    textAlign(CENTER, TOP);
+    text("Click on Aisle 2 to continue", width / 2, 500);
+  }
+
+  function drawAisleScene() {
+    // back button
+    drawBackButton("Back to main area");
+
+    // Shelves background
+    noStroke();
+    fill(230);
+    rect(80, 160, width - 160, 320, 20);
+
+    stroke(200);
+    for (let i = 0; i < 3; i++) {
+      line(100, 210 + i * 80, width - 100, 210 + i * 80);
+    }
+
+    // Products: draw several generic boxes + one cereal box
+    textAlign(CENTER, CENTER);
+    textSize(14);
+
+    const productW = 70;
+    const productH = 90;
+    let xStart = 120;
+    let yStart = 185;
+
+    // generic products
+    noStroke();
+    for (let i = 0; i < 6; i++) {
+      let px = xStart + (i % 3) * 140;
+      let py = yStart + Math.floor(i / 3) * 120;
+      fill(200);
+      rect(px, py, productW, productH, 10);
+      fill(80);
+      text("Product", px + productW / 2, py + productH / 2);
+    }
+
+    // Cereal box (clickable, highlighted)
+    const hover = isHover(cerealRect);
+    push();
+    stroke(hover ? 255 : 220);
+    strokeWeight(3);
+    fill(hover ? color(255, 240, 180) : color(250, 230, 170));
+    rect(cerealRect.x, cerealRect.y, cerealRect.w, cerealRect.h, 16);
+    noStroke();
+    fill(120, 80, 10);
+    textSize(18);
+    textAlign(CENTER, TOP);
+    text("Cereal", cerealRect.x + cerealRect.w / 2, cerealRect.y + 40 + floatOffset);
+    textSize(14);
+    text("Box", cerealRect.x + cerealRect.w / 2, cerealRect.y + 70 + floatOffset);
+    pop();
+
+    // Hint text
+    fill(100);
+    textSize(14);
+    textAlign(CENTER, TOP);
+    text("Click on the Cereal Box to add it to your basket.", width / 2, 500);
+  }
+
+  function drawCashierScene() {
+    // back button
+    drawBackButton("Back to main area");
+
+    // Cashier block
+    textAlign(CENTER, CENTER);
+    noStroke();
+
+    const hover = isHover(cashierRect);
+    fill(hover ? 210 : 225);
+    rect(cashierRect.x, cashierRect.y, cashierRect.w, cashierRect.h, 20);
+
+    fill(80);
+    textSize(20);
+    text("Cashier", cashierRect.x + cashierRect.w / 2, cashierRect.y + 40);
+
+    // counter
+    stroke(180);
+    line(cashierRect.x + 20, cashierRect.y + 100, cashierRect.x + cashierRect.w - 20, cashierRect.y + 100);
+
+    // small "screen"
+    noStroke();
+    fill(50);
+    rect(cashierRect.x + 40, cashierRect.y + 120, cashierRect.w - 80, 60, 10);
+    fill(230);
+    textSize(16);
+    text("Total: 3.99", cashierRect.x + cashierRect.w / 2, cashierRect.y + 150);
+
+    // hint
+    fill(100);
+    textSize(14);
+    text("Click on the cashier to pay.", cashierRect.x + cashierRect.w / 2, cashierRect.y + cashierRect.h - 30);
+  }
+
+  function drawPinScene() {
+    // PIN display
+    noStroke();
+    fill(240);
+    rect(260, 140, 380, 60, 10);
+    fill(80);
+    textAlign(LEFT, CENTER);
+    textSize(18);
+    text("Enter PIN:", 280, 170);
+
+    // show stars instead of full PIN
+    const masked = "•".repeat(pinInput.length);
+    textAlign(RIGHT, CENTER);
+    text(masked, 620, 170);
+
+    // draw buttons
+    textAlign(CENTER, CENTER);
+    textSize(18);
+    keypadButtons.forEach(btn => {
+      const hover = isHover(btn);
+      stroke(hover ? 80 : 180);
+      strokeWeight(1);
+      fill(hover ? 240 : 250);
+      rect(btn.x, btn.y, btn.w, btn.h, 10);
+      noStroke();
+      fill(60);
+      text(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+    });
+
+    // Clear
+    const hoverClear = isHover(clearButton);
+    stroke(hoverClear ? 80 : 180);
+    strokeWeight(1);
+    fill(hoverClear ? 240 : 250);
+    rect(clearButton.x, clearButton.y, clearButton.w, clearButton.h, 10);
+    noStroke();
+    fill(60);
+    textSize(16);
+    text(clearButton.label, clearButton.x + clearButton.w / 2, clearButton.y + clearButton.h / 2);
+
+    // Enter
+    const hoverEnter = isHover(enterButton);
+    stroke(hoverEnter ? 80 : 180);
+    strokeWeight(1);
+    fill(hoverEnter ? 230 : 245);
+    rect(enterButton.x, enterButton.y, enterButton.w, enterButton.h, 10);
+    noStroke();
+    fill(60);
+    textSize(16);
+    text(enterButton.label, enterButton.x + enterButton.w / 2, enterButton.y + enterButton.h / 2);
+
+    // Helper text
+    noStroke();
+    fill(100);
+    textSize(14);
+    textAlign(CENTER, TOP);
+    text("Use the keypad to enter the PIN code and then press Enter.", width / 2, 520);
+  }
+
+  function drawSuccessScene() {
+    // simple success screen
+    noStroke();
+    fill(230);
+    rect(160, 180, width - 320, 240, 20);
+
+    fill(40, 130, 80);
+    textAlign(CENTER, CENTER);
+    textSize(28);
+    text("Payment Accepted", width / 2, 240);
+
+    fill(60);
+    textSize(18);
+    text("You have completed the supermarket task.\n\nPlease click the “Next” button below to continue with the survey.", width / 2, 310);
+  }
+
+  function drawBackButton(label) {
+    const hover = isHover(backRect);
+    noStroke();
+    fill(hover ? 210 : 225);
+    rect(backRect.x, backRect.y, backRect.w, backRect.h, 10);
+    fill(80);
+    textSize(14);
+    textAlign(CENTER, CENTER);
+    text(label, backRect.x + backRect.w / 2, backRect.y + backRect.h / 2);
+  }
+
+  function mousePressed() {
+    if (state === "supermarket") {
+      if (isHover(aisleRect)) {
+        state = "aisle";
+      }
+    } else if (state === "aisle") {
+      if (isHover(backRect)) {
+        state = "supermarket";
+        return;
+      }
+      if (isHover(cerealRect)) {
+        state = "cashier";
+      }
+    } else if (state === "cashier") {
+      if (isHover(backRect)) {
+        state = "aisle";
+        return;
+      }
+      if (isHover(cashierRect)) {
+        state = "pin";
+      }
+    } else if (state === "pin") {
+      handlePinClick();
+    }
+  }
+
+  function handlePinClick() {
+    // keypad digits
+    for (let btn of keypadButtons) {
+      if (isHover(btn)) {
+        if (pinInput.length < 6) { // small safeguard
+          pinInput += btn.label;
+        }
+        return;
+      }
+    }
+
+    // clear
+    if (isHover(clearButton)) {
+      pinInput = "";
+      return;
+    }
+
+    // enter
+    if (isHover(enterButton)) {
+      if (pinInput === correctPin) {
+        state = "success";
+      } else {
+        // simple feedback: shake by briefly changing background color or just clear + maybe message
+        pinInput = "";
+      }
+      return;
+    }
+  }
+
+  function isHover(r) {
+    return mouseX >= r.x && mouseX <= r.x + r.w &&
+           mouseY >= r.y && mouseY <= r.y + r.h;
+  }
+</script>
+</body>
+</html>
