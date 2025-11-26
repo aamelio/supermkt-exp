@@ -1,410 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Supermarket Experience</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- p5.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
-  <style>
-    body {
-      margin: 0;
-      background: #f2f2f2;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    #defaultCanvas0 {
-      outline: none;
-      display: block;
-      margin: 0 auto;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Supermarket Experience</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+
+<style>
+  body {
+    margin: 0;
+    background: #eee;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI";
+  }
+  #defaultCanvas0 { display: block; margin: 0 auto; }
+</style>
 </head>
+
 <body>
 <script>
-  let state = "supermarket"; // "supermarket", "aisle", "cashier", "pin", "success"
-  let floatOffset = 0;
-  let floatDir = 1;
-  let pinInput = "";
-  const correctPin = "1289";
+/* ---------------------------------------------------------
+   IMAGE CONFIGURATION (You may replace URLs anytime)
+   --------------------------------------------------------- */
 
-  // Layout helpers
-  let aisleRect, cashierRect, cerealRect, backRect;
-  let keypadButtons = [];
-  let clearButton, enterButton;
+let IMG = {};
 
-  function setup() {
-    const canvas = createCanvas(900, 600);
-    canvas.parent(document.body);
-    textFont("system-ui");
-    setupLayout();
-  }
+function preload() {
+  IMG.supermarket = loadImage("https://upload.wikimedia.org/wikipedia/commons/1/14/Interior_of_a_Supermarket_in_Brunei_2.jpg");
+  IMG.aisle = loadImage("https://upload.wikimedia.org/wikipedia/commons/c/c4/Supermarket_aisle.jpg");
+  IMG.cereal = loadImage("https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Cornflakes_bowl.jpg/640px-Cornflakes_bowl.jpg");
+  IMG.snacks = loadImage("https://upload.wikimedia.org/wikipedia/commons/3/3f/Chips.jpg");
+  IMG.drinks = loadImage("https://upload.wikimedia.org/wikipedia/commons/1/18/Soft_drinks.jpg");
+  IMG.cashier = loadImage("https://upload.wikimedia.org/wikipedia/commons/5/5f/Cashier_supermarket.jpg");
+}
 
-  function windowResized() {
-    // Keep a fixed size to be stable inside Qualtrics iframe
-    resizeCanvas(900, 600);
-    setupLayout();
-  }
+/* ---------------------------------------------------------
+   STATE MANAGEMENT
+   --------------------------------------------------------- */
 
-  function setupLayout() {
-    aisleRect = { x: 100, y: 260, w: 220, h: 200 };
-    cashierRect = { x: 580, y: 260, w: 220, h: 200 };
-    cerealRect = { x: 260, y: 260, w: 130, h: 200 };
-    backRect = { x: 40, y: 520, w: 140, h: 40 };
+let state = "overview"; 
+let selectedProduct = null;
+let pinInput = "";
+const correctPin = "1289";
 
-    // Setup keypad
-    keypadButtons = [];
-    const startX = 320;
-    const startY = 230;
-    const bw = 80;
-    const bh = 60;
-    const gap = 15;
+let aisleButtons = [];
+let backButton;
+let keypadButtons = [];
+let clearBtn, enterBtn;
 
-    let labels = [
-      "1", "2", "3",
-      "4", "5", "6",
-      "7", "8", "9",
-      "0"
-    ];
-    let idx = 0;
-    for (let row = 0; row < 4; row++) {
-      for (let col = 0; col < 3; col++) {
-        if (row === 3 && col > 0) break;
-        const x = startX + col * (bw + gap);
-        const y = startY + row * (bh + gap);
-        keypadButtons.push({
-          label: labels[idx],
-          x, y, w: bw, h: bh
-        });
-        idx++;
-      }
-    }
+/* ---------------------------------------------------------
+   SETUP
+   --------------------------------------------------------- */
 
-    clearButton = { label: "Clear", x: 320, y: startY + 4 * (bh + gap), w: bw, h: bh };
-    enterButton = { label: "Enter", x: 320 + (bw + gap), y: startY + 4 * (bh + gap), w: bw * 2 + gap, h: bh };
-  }
+function setup() {
+  createCanvas(900, 600);
+  setupButtons();
+}
 
-  function draw() {
-    background(242);
+function setupButtons() {
+  aisleButtons = [
+    { name: "Aisle 1", x: 120, y: 350, w: 150, h: 60, img: IMG.snacks, code: "snacks" },
+    { name: "Aisle 2", x: 375, y: 350, w: 150, h: 60, img: IMG.aisle, code: "cereal" },
+    { name: "Aisle 3", x: 630, y: 350, w: 150, h: 60, img: IMG.drinks, code: "drinks" }
+  ];
 
-    // Gentle float animation for highlighting elements
-    floatOffset += 0.3 * floatDir;
-    if (floatOffset > 6 || floatOffset < -6) {
-      floatDir *= -1;
-    }
+  backButton = { x: 40, y: 530, w: 130, h: 40 };
 
-    drawHeader();
+  // Keypad
+  let labels = ["1","2","3", "4","5","6", "7","8","9", "0"];
+  let index = 0;
+  let startX = 320, startY = 240;
+  let bw = 80, bh = 60, gap = 15;
 
-    if (state === "supermarket") {
-      drawInstructions("Go to Aisle 2 and select the Cereal Box.");
-      drawSupermarketScene();
-    } else if (state === "aisle") {
-      drawInstructions("Click on the Cereal Box in Aisle 2.");
-      drawAisleScene();
-    } else if (state === "cashier") {
-      drawInstructions("Click on the cashier to pay.");
-      drawCashierScene();
-    } else if (state === "pin") {
-      drawInstructions("Enter PIN 1289 to complete the payment.");
-      drawPinScene();
-    } else if (state === "success") {
-      drawInstructions("Payment accepted!");
-      drawSuccessScene();
+  keypadButtons = [];
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (r === 3 && c > 0) break;
+      keypadButtons.push({
+        label: labels[index++],
+        x: startX + c * (bw + gap),
+        y: startY + r * (bh + gap),
+        w: bw, h: bh
+      });
     }
   }
 
-  function drawHeader() {
-    noStroke();
-    fill(30);
-    rect(0, 0, width, 70);
+  clearBtn = { label: "Clear", x: 320, y: startY + 4*(bh+gap), w: bw, h: bh };
+  enterBtn = { label: "Enter", x: 320 + bw + gap, y: clearBtn.y, w: bw*2 + gap, h: bh };
+}
+
+/* ---------------------------------------------------------
+   MAIN DRAW LOOP
+   --------------------------------------------------------- */
+
+function draw() {
+  background(240);
+
+  drawHeader();
+
+  if (state === "overview")      drawOverview();
+  if (state === "aisle")         drawAisle();
+  if (state === "cashier")       drawCashier();
+  if (state === "pin")           drawPinScreen();
+  if (state === "success")       drawSuccess();
+}
+
+function drawHeader() {
+  fill(30);
+  rect(0,0,width,70);
+  fill(255);
+  textAlign(LEFT, CENTER);
+  textSize(22);
+  text("Supermarket Experience", 24, 35);
+}
+
+/* ---------------------------------------------------------
+   SCREEN 1 — OVERVIEW
+   --------------------------------------------------------- */
+
+function drawOverview() {
+  image(IMG.supermarket, 0, 70, width, 320);
+
+  fill(50);
+  textSize(18);
+  text("Go to Aisle 2 and select the Cereal Box.", 24, 420);
+
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  fill(0);
+
+  aisleButtons.forEach(btn => {
     fill(255);
-    textSize(22);
-    textAlign(LEFT, CENTER);
-    text("Supermarket Checkout Experience", 24, 35);
-  }
+    rect(btn.x, btn.y, btn.w, btn.h, 12);
+    fill(30);
+    text(btn.name, btn.x + btn.w/2, btn.y + btn.h/2);
+  });
+}
 
-  function drawInstructions(msg) {
-    fill(50);
-    textSize(18);
-    textAlign(LEFT, TOP);
-    text(msg, 24, 80, width - 48, 60);
-  }
+/* ---------------------------------------------------------
+   SCREEN 2 — AISLE VIEW
+   --------------------------------------------------------- */
 
-  function drawSupermarketScene() {
-    textAlign(CENTER, CENTER);
-    textSize(16);
+function drawAisle() {
+  image(IMG.aisle, 0, 70, width, 380);
+  drawBackButton();
 
-    // Aisle panel
-    push();
-    const aisleHover = isHover(aisleRect);
-    fill(aisleHover ? 210 : 225);
-    rect(aisleRect.x, aisleRect.y, aisleRect.w, aisleRect.h, 20);
-    fill(80);
-    text("Aisle 2", aisleRect.x + aisleRect.w / 2, aisleRect.y + 30 + floatOffset);
-    stroke(160);
-    // fake shelves
-    for (let i = 0; i < 3; i++) {
-      line(aisleRect.x + 20, aisleRect.y + 80 + i * 50, aisleRect.x + aisleRect.w - 20, aisleRect.y + 80 + i * 50);
-    }
-    pop();
+  fill(30);
+  textSize(18);
+  text("Click the Cereal Box in Aisle 2.", 24, 460);
 
-    // Cashier panel (disabled at this step)
-    push();
-    fill(235);
-    rect(cashierRect.x, cashierRect.y, cashierRect.w, cashierRect.h, 20);
-    fill(150);
-    text("Cashier", cashierRect.x + cashierRect.w / 2, cashierRect.y + 30);
-    stroke(190);
-    line(cashierRect.x + 20, cashierRect.y + 90, cashierRect.x + cashierRect.w - 20, cashierRect.y + 90);
-    noStroke();
-    fill(200);
-    textSize(14);
-    text("You must first\nselect the Cereal Box", cashierRect.x + cashierRect.w / 2, cashierRect.y + 150);
-    pop();
+  // Product images
+  let px = 350, py = 200, pw = 200, ph = 200;
+  image(IMG.cereal, px, py, pw, ph);
 
-    // Hint text
-    noStroke();
-    fill(100);
-    textSize(14);
-    textAlign(CENTER, TOP);
-    text("Click on Aisle 2 to continue", width / 2, 500);
-  }
+  fill(255);
+  textAlign(CENTER, TOP);
+  text("Cereal Box", px + pw/2, py + ph + 5);
+}
 
-  function drawAisleScene() {
-    // back button
-    drawBackButton("Back to main area");
+/* ---------------------------------------------------------
+   SCREEN 3 — CASHIER
+   --------------------------------------------------------- */
 
-    // Shelves background
-    noStroke();
-    fill(230);
-    rect(80, 160, width - 160, 320, 20);
+function drawCashier() {
+  image(IMG.cashier, 0, 70, width, 380);
+  drawBackButton();
 
-    stroke(200);
-    for (let i = 0; i < 3; i++) {
-      line(100, 210 + i * 80, width - 100, 210 + i * 80);
-    }
+  fill(30);
+  textSize(18);
+  text("Click the cashier to pay.", 24, 480);
+}
 
-    // Products: draw several generic boxes + one cereal box
-    textAlign(CENTER, CENTER);
-    textSize(14);
+/* ---------------------------------------------------------
+   SCREEN 4 — PIN ENTRY
+   --------------------------------------------------------- */
 
-    const productW = 70;
-    const productH = 90;
-    let xStart = 120;
-    let yStart = 185;
+function drawPinScreen() {
+  fill(240);
+  rect(260, 130, 380, 60, 10);
 
-    // generic products
-    noStroke();
-    for (let i = 0; i < 6; i++) {
-      let px = xStart + (i % 3) * 140;
-      let py = yStart + Math.floor(i / 3) * 120;
-      fill(200);
-      rect(px, py, productW, productH, 10);
-      fill(80);
-      text("Product", px + productW / 2, py + productH / 2);
-    }
+  fill(50);
+  textSize(18);
+  textAlign(LEFT, CENTER);
+  text("Enter PIN:", 280, 160);
 
-    // Cereal box (clickable, highlighted)
-    const hover = isHover(cerealRect);
-    push();
-    stroke(hover ? 255 : 220);
-    strokeWeight(3);
-    fill(hover ? color(255, 240, 180) : color(250, 230, 170));
-    rect(cerealRect.x, cerealRect.y, cerealRect.w, cerealRect.h, 16);
-    noStroke();
-    fill(120, 80, 10);
-    textSize(18);
-    textAlign(CENTER, TOP);
-    text("Cereal", cerealRect.x + cerealRect.w / 2, cerealRect.y + 40 + floatOffset);
-    textSize(14);
-    text("Box", cerealRect.x + cerealRect.w / 2, cerealRect.y + 70 + floatOffset);
-    pop();
+  let masked = "•".repeat(pinInput.length);
+  textAlign(RIGHT, CENTER);
+  text(masked, 620, 160);
 
-    // Hint text
-    fill(100);
-    textSize(14);
-    textAlign(CENTER, TOP);
-    text("Click on the Cereal Box to add it to your basket.", width / 2, 500);
-  }
+  // Keypad
+  textSize(18);
+  textAlign(CENTER, CENTER);
 
-  function drawCashierScene() {
-    // back button
-    drawBackButton("Back to main area");
+  keypadButtons.forEach(btn => {
+    fill(isHover(btn) ? 225 : 250);
+    rect(btn.x, btn.y, btn.w, btn.h, 10);
+    fill(40);
+    text(btn.label, btn.x + btn.w/2, btn.y + btn.h/2);
+  });
 
-    // Cashier block
-    textAlign(CENTER, CENTER);
-    noStroke();
+  fill(isHover(clearBtn)?225:250);
+  rect(clearBtn.x, clearBtn.y, clearBtn.w, clearBtn.h, 10);
+  fill(40);
+  text("Clear", clearBtn.x + clearBtn.w/2, clearBtn.y + clearBtn.h/2);
 
-    const hover = isHover(cashierRect);
-    fill(hover ? 210 : 225);
-    rect(cashierRect.x, cashierRect.y, cashierRect.w, cashierRect.h, 20);
+  fill(isHover(enterBtn)?220:245);
+  rect(enterBtn.x, enterBtn.y, enterBtn.w, enterBtn.h, 10);
+  fill(40);
+  text("Enter", enterBtn.x + enterBtn.w/2, enterBtn.y + enterBtn.h/2);
+}
 
-    fill(80);
-    textSize(20);
-    text("Cashier", cashierRect.x + cashierRect.w / 2, cashierRect.y + 40);
+/* ---------------------------------------------------------
+   SCREEN 5 — SUCCESS
+   --------------------------------------------------------- */
 
-    // counter
-    stroke(180);
-    line(cashierRect.x + 20, cashierRect.y + 100, cashierRect.x + cashierRect.w - 20, cashierRect.y + 100);
+function drawSuccess() {
+  fill(255);
+  rect(180, 160, width-360, 260, 20);
 
-    // small "screen"
-    noStroke();
-    fill(50);
-    rect(cashierRect.x + 40, cashierRect.y + 120, cashierRect.w - 80, 60, 10);
-    fill(230);
-    textSize(16);
-    text("Total: 3.99", cashierRect.x + cashierRect.w / 2, cashierRect.y + 150);
+  fill(40, 130, 80);
+  textSize(28);
+  textAlign(CENTER, CENTER);
+  text("Payment Accepted", width/2, 220);
 
-    // hint
-    fill(100);
-    textSize(14);
-    text("Click on the cashier to pay.", cashierRect.x + cashierRect.w / 2, cashierRect.y + cashierRect.h - 30);
-  }
+  fill(60);
+  textSize(18);
+  text("You completed the supermarket task.\nClick 'Next' to continue.", width/2, 300);
+}
 
-  function drawPinScene() {
-    // PIN display
-    noStroke();
-    fill(240);
-    rect(260, 140, 380, 60, 10);
-    fill(80);
-    textAlign(LEFT, CENTER);
-    textSize(18);
-    text("Enter PIN:", 280, 170);
+/* ---------------------------------------------------------
+   HELPERS
+   --------------------------------------------------------- */
 
-    // show stars instead of full PIN
-    const masked = "•".repeat(pinInput.length);
-    textAlign(RIGHT, CENTER);
-    text(masked, 620, 170);
+function drawBackButton() {
+  fill(isHover(backButton)?210:230);
+  rect(backButton.x, backButton.y, backButton.w, backButton.h, 10);
+  fill(30);
+  textAlign(CENTER, CENTER);
+  textSize(14);
+  text("Back", backButton.x + backButton.w/2, backButton.y + backButton.h/2);
+}
 
-    // draw buttons
-    textAlign(CENTER, CENTER);
-    textSize(18);
-    keypadButtons.forEach(btn => {
-      const hover = isHover(btn);
-      stroke(hover ? 80 : 180);
-      strokeWeight(1);
-      fill(hover ? 240 : 250);
-      rect(btn.x, btn.y, btn.w, btn.h, 10);
-      noStroke();
-      fill(60);
-      text(btn.label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+function isHover(r) {
+  return mouseX >= r.x && mouseX <= r.x+r.w &&
+         mouseY >= r.y && mouseY <= r.y+r.h;
+}
+
+function mousePressed() {
+  /* Overview */
+  if (state === "overview") {
+    aisleButtons.forEach(btn => {
+      if (isHover(btn)) {
+        if (btn.code === "cereal") state = "aisle";
+      }
     });
-
-    // Clear
-    const hoverClear = isHover(clearButton);
-    stroke(hoverClear ? 80 : 180);
-    strokeWeight(1);
-    fill(hoverClear ? 240 : 250);
-    rect(clearButton.x, clearButton.y, clearButton.w, clearButton.h, 10);
-    noStroke();
-    fill(60);
-    textSize(16);
-    text(clearButton.label, clearButton.x + clearButton.w / 2, clearButton.y + clearButton.h / 2);
-
-    // Enter
-    const hoverEnter = isHover(enterButton);
-    stroke(hoverEnter ? 80 : 180);
-    strokeWeight(1);
-    fill(hoverEnter ? 230 : 245);
-    rect(enterButton.x, enterButton.y, enterButton.w, enterButton.h, 10);
-    noStroke();
-    fill(60);
-    textSize(16);
-    text(enterButton.label, enterButton.x + enterButton.w / 2, enterButton.y + enterButton.h / 2);
-
-    // Helper text
-    noStroke();
-    fill(100);
-    textSize(14);
-    textAlign(CENTER, TOP);
-    text("Use the keypad to enter the PIN code and then press Enter.", width / 2, 520);
   }
 
-  function drawSuccessScene() {
-    // simple success screen
-    noStroke();
-    fill(230);
-    rect(160, 180, width - 320, 240, 20);
-
-    fill(40, 130, 80);
-    textAlign(CENTER, CENTER);
-    textSize(28);
-    text("Payment Accepted", width / 2, 240);
-
-    fill(60);
-    textSize(18);
-    text("You have completed the supermarket task.\n\nPlease click the “Next” button below to continue with the survey.", width / 2, 310);
-  }
-
-  function drawBackButton(label) {
-    const hover = isHover(backRect);
-    noStroke();
-    fill(hover ? 210 : 225);
-    rect(backRect.x, backRect.y, backRect.w, backRect.h, 10);
-    fill(80);
-    textSize(14);
-    textAlign(CENTER, CENTER);
-    text(label, backRect.x + backRect.w / 2, backRect.y + backRect.h / 2);
-  }
-
-  function mousePressed() {
-    if (state === "supermarket") {
-      if (isHover(aisleRect)) {
-        state = "aisle";
-      }
-    } else if (state === "aisle") {
-      if (isHover(backRect)) {
-        state = "supermarket";
-        return;
-      }
-      if (isHover(cerealRect)) {
+  /* Aisle */
+  else if (state === "aisle") {
+    if (isHover(backButton)) state = "overview";
+    else {
+      // Check cereal click
+      let px = 350, py = 200, pw = 200, ph = 200;
+      if (mouseX >= px && mouseX <= px+pw &&
+          mouseY >= py && mouseY <= py+ph) {
+        selectedProduct = "cereal";
         state = "cashier";
       }
-    } else if (state === "cashier") {
-      if (isHover(backRect)) {
-        state = "aisle";
-        return;
-      }
-      if (isHover(cashierRect)) {
-        state = "pin";
-      }
-    } else if (state === "pin") {
-      handlePinClick();
     }
   }
 
-  function handlePinClick() {
-    // keypad digits
-    for (let btn of keypadButtons) {
+  /* Cashier */
+  else if (state === "cashier") {
+    if (isHover(backButton)) state = "aisle";
+    else {
+      // Anywhere near center triggers cashier
+      state = "pin";
+    }
+  }
+
+  /* PIN Entry */
+  else if (state === "pin") {
+    keypadButtons.forEach(btn => {
       if (isHover(btn)) {
-        if (pinInput.length < 6) { // small safeguard
-          pinInput += btn.label;
-        }
-        return;
+        if (pinInput.length < 6) pinInput += btn.label;
       }
-    }
+    });
 
-    // clear
-    if (isHover(clearButton)) {
-      pinInput = "";
-      return;
-    }
+    if (isHover(clearBtn)) pinInput = "";
 
-    // enter
-    if (isHover(enterButton)) {
-      if (pinInput === correctPin) {
-        state = "success";
-      } else {
-        // simple feedback: shake by briefly changing background color or just clear + maybe message
-        pinInput = "";
-      }
-      return;
+    if (isHover(enterBtn)) {
+      if (pinInput === correctPin) state = "success";
+      else pinInput = ""; // reset on wrong
     }
   }
-
-  function isHover(r) {
-    return mouseX >= r.x && mouseX <= r.x + r.w &&
-           mouseY >= r.y && mouseY <= r.y + r.h;
-  }
+}
 </script>
+
 </body>
 </html>
